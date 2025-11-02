@@ -1,16 +1,15 @@
 import { formatarMoeda } from "../utils/formatters.js";
+import Conta from "../types/Conta.js";
 const elementoSaldo = document.querySelector(".saldo-valor .valor");
-let saldo = 3000;
-mostrarSaldo();
-export function getSaldo() {
-    return saldo;
-}
-export function atualizarSaldo(novoSaldo) {
-    saldo = novoSaldo;
-    mostrarSaldo();
-}
-export function mostrarSaldo() {
+renderizarSaldo();
+function renderizarSaldo() {
     if (elementoSaldo) {
-        elementoSaldo.textContent = formatarMoeda(saldo);
+        elementoSaldo.textContent = formatarMoeda(Conta.getSaldo());
     }
 }
+const SaldoComponent = {
+    atualizar: function () {
+        renderizarSaldo();
+    }
+};
+export default SaldoComponent;
