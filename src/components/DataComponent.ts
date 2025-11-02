@@ -1,11 +1,7 @@
-let saldo: number = 3000;
+import { formatarData } from "../utils/formatters.js";
+import { FormatoData } from "../types/FormatoData.js";
 
-const elementoSaldo = document.querySelector(".saldo-valor .valor") as HTMLElement;
 const elementoDataAcesso = document.querySelector(".block-saldo time") as HTMLElement;
-
-if(elementoSaldo) {
-        elementoSaldo.textContent = formatarMoeda(saldo);
-}
 
 if(elementoDataAcesso) {
         const dataAcesso: Date = new Date();
