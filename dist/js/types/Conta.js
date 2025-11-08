@@ -1,40 +1,29 @@
-import { TipoTransacao } from "./TipoTransacao.js";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
 import { formatarData } from "../utils/formatters.js";
 import { FormatoData } from "./FormatoData.js";
-let saldo = JSON.parse(localStorage.getItem("saldo")) || 0;
-const transacoes = JSON.parse(localStorage.getItem("transacoes"), (key, value) => {
-    if (key === "data") {
-        return new Date(value);
+import { TipoTransacao } from "./TipoTransacao.js";
+import { Armazenador } from "./Armazenador.js";
+import { validaDebito, validaDeposito } from "./Decorator.js";
+export class Conta {
+    nome;
+    saldo = Armazenador.obter("saldo") || 0;
+    transacoes = Armazenador.obter(("transacoes"), (key, value) => {
+        if (key === "data") {
+            return new Date(value);
+        }
+        return value;
+    }) || [];
+    constructor(nome) {
+        this.nome = nome;
     }
-    return value;
-}) || [];
-function depositar(valor) {
-    if (valor <= 0) {
-        throw new Error("Valor deve ser maior que zero");
-    }
-    saldo += valor;
-    localStorage.setItem("saldo", JSON.stringify(saldo));
-}
-function debitar(valor) {
-    if (valor <= 0) {
-        throw new Error("Valor deve ser maior que zero");
-    }
-    else if (valor > saldo) {
-        throw new Error("Valor maior que o saldo presente na conta");
-    }
-    saldo -= valor;
-    localStorage.setItem("saldo", JSON.stringify(saldo));
-}
-const Conta = {
-    getSaldo() {
-        return saldo;
-    },
-    getDataAcesso() {
-        return new Date();
-    },
     getGrupoTransacao() {
         const gruposTransacoes = [];
-        const listaTransacoes = structuredClone(transacoes);
+        const listaTransacoes = structuredClone(this.transacoes);
         const transacoesOrdenadas = listaTransacoes.sort((t1, t2) => t2.data.getTime() - t1.data.getTime());
         let labelAtualGrupoTransacao = "";
         for (let transacao of transacoesOrdenadas) {
@@ -49,21 +38,55 @@ const Conta = {
             gruposTransacoes.at(-1).transacoes.push(transacao);
         }
         return gruposTransacoes;
-    },
+    }
+    getSaldo() {
+        return this.saldo;
+    }
+    getDataAcesso() {
+        return new Date();
+    }
+    getNome() {
+        return this.nome;
+    }
+    depositar(valor) {
+        this.saldo += valor;
+        Armazenador.salvar("saldo", JSON.stringify(this.saldo));
+    }
+    debitar(valor) {
+        this.saldo -= valor;
+        Armazenador.salvar("saldo", JSON.stringify(this.saldo));
+    }
     registrarTransacao(novaTransacao) {
         if (novaTransacao.tipoTransacao === TipoTransacao.DEPOSITO) {
-            depositar(novaTransacao.valor);
+            this.depositar(novaTransacao.valor);
         }
         else if (novaTransacao.tipoTransacao === TipoTransacao.TRANSFERENCIA || novaTransacao.tipoTransacao === TipoTransacao.PAGAMENTO_BOLETO) {
-            debitar(novaTransacao.valor);
+            this.debitar(novaTransacao.valor);
             novaTransacao.valor *= -1;
         }
         else {
             throw new Error("Tipo de transação inválido");
         }
-        transacoes.push(novaTransacao);
+        this.transacoes.push(novaTransacao);
         console.log(this.getGrupoTransacao());
-        localStorage.setItem("transacoes", JSON.stringify(transacoes));
+        Armazenador.salvar("transacoes", JSON.stringify(this.transacoes));
     }
-};
-export default Conta;
+}
+__decorate([
+    validaDeposito
+], Conta.prototype, "depositar", null);
+__decorate([
+    validaDebito
+], Conta.prototype, "debitar", null);
+export class ContaPremium extends Conta {
+    registrarTransacao(novaTransacao) {
+        if (novaTransacao.tipoTransacao === TipoTransacao.DEPOSITO) {
+            console.log("ganhou bonus");
+            novaTransacao.valor += 0.5;
+        }
+        super.registrarTransacao(novaTransacao);
+    }
+}
+const conta = new Conta("Joana");
+const contaPremium = new ContaPremium("Marcia");
+export default conta;

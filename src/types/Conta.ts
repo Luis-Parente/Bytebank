@@ -1,51 +1,29 @@
-import { Transacao } from "./Transacao.js"; 
-import { TipoTransacao } from "./TipoTransacao.js";
-import { GrupoTransacao } from "./GrupoTransacao.js";
-import { formatarData } from "../utils/formatters.js";
-import { FormatoData } from "./FormatoData.js";
+import {Transacao} from "./Transacao.js";
+import {GrupoTransacao} from "./GrupoTransacao.js";
+import {formatarData} from "../utils/formatters.js";
+import {FormatoData} from "./FormatoData.js";
+import {TipoTransacao} from "./TipoTransacao.js";
+import {Armazenador} from "./Armazenador.js";
+import {validaDebito, validaDeposito} from "./Decorator.js";
 
-let saldo: number = JSON.parse(localStorage.getItem("saldo")) || 0;
-const transacoes: Transacao[] = JSON.parse(localStorage.getItem("transacoes"), (key: string, value: string) => {
-    if (key === "data") {
-        return new Date(value);
+export class Conta {
+    protected nome: string
+    protected saldo: number = Armazenador.obter<number>("saldo") || 0;
+    private transacoes: Transacao[] = Armazenador.obter<Transacao[]>(("transacoes"), (key: string, value: string) => {
+        if (key === "data") {
+            return new Date(value);
+        }
+
+        return value;
+    }) || [];
+
+    constructor(nome: string) {
+        this.nome = nome;
     }
-
-    return value;
-}) || [];
-
-function depositar(valor: number): void {
-    if (valor <= 0) {
-        throw new Error("Valor deve ser maior que zero")
-    }
-    saldo += valor;
-
-    localStorage.setItem("saldo", JSON.stringify(saldo));
-}
-
-function debitar(valor: number): void {
-    if (valor <= 0) {
-        throw new Error("Valor deve ser maior que zero")
-    }
-    else if (valor > saldo) {
-        throw new Error("Valor maior que o saldo presente na conta");
-    }
-    saldo -= valor;
-
-    localStorage.setItem("saldo", JSON.stringify(saldo));
-}
-
-const Conta = {
-    getSaldo(): number {
-        return saldo;
-    },
-
-    getDataAcesso(): Date {
-        return new Date();
-    },
 
     getGrupoTransacao(): GrupoTransacao[] {
         const gruposTransacoes: GrupoTransacao[] = [];
-        const listaTransacoes: Transacao[] = structuredClone(transacoes);
+        const listaTransacoes: Transacao[] = structuredClone(this.transacoes);
 
         const transacoesOrdenadas: Transacao[] = listaTransacoes.sort((t1, t2) => t2.data.getTime() - t1.data.getTime());
 
@@ -67,23 +45,61 @@ const Conta = {
         }
 
         return gruposTransacoes;
-    },
+    }
+
+    getSaldo(): number {
+        return this.saldo;
+    }
+
+    getDataAcesso(): Date {
+        return new Date();
+    }
+
+    getNome(): string {
+        return this.nome;
+    }
+
+    @validaDeposito
+    private depositar(valor: number): void {
+        this.saldo += valor;
+        Armazenador.salvar("saldo", JSON.stringify(this.saldo));
+    }
+
+    @validaDebito
+    private debitar(valor: number): void {
+        this.saldo -= valor;
+        Armazenador.salvar("saldo", JSON.stringify(this.saldo));
+    }
 
     registrarTransacao(novaTransacao: Transacao): void {
 
         if (novaTransacao.tipoTransacao === TipoTransacao.DEPOSITO) {
-            depositar(novaTransacao.valor);
+            this.depositar(novaTransacao.valor);
         } else if (novaTransacao.tipoTransacao === TipoTransacao.TRANSFERENCIA || novaTransacao.tipoTransacao === TipoTransacao.PAGAMENTO_BOLETO) {
-            debitar(novaTransacao.valor);
+            this.debitar(novaTransacao.valor);
             novaTransacao.valor *= -1;
         } else {
             throw new Error("Tipo de transação inválido");
         }
 
-        transacoes.push(novaTransacao);
+        this.transacoes.push(novaTransacao);
         console.log(this.getGrupoTransacao());
-        localStorage.setItem("transacoes", JSON.stringify(transacoes));
+        Armazenador.salvar("transacoes", JSON.stringify(this.transacoes));
     }
 }
 
-export default Conta;
+export class ContaPremium extends Conta {
+
+    registrarTransacao(novaTransacao: Transacao): void  {
+        if(novaTransacao.tipoTransacao === TipoTransacao.DEPOSITO) {
+            console.log("ganhou bonus");
+            novaTransacao.valor += 0.5;
+        }
+        super.registrarTransacao(novaTransacao);
+    }
+}
+
+const conta = new Conta("Joana");
+const contaPremium = new ContaPremium("Marcia");
+
+export default conta;
